@@ -1,0 +1,88 @@
+#!/usr/bin/env node
+
+process.title = 'wad';
+
+var WAD = require('../index.js');
+var Dir = require('../lib/dir');
+
+var fs = require('fs');
+var path = require('path');
+var mkdirp = require('mkdirp');
+var optimist = require('optimist');
+
+var usage = [
+  'Create or extract rock raiders compatible WAD archives.',
+  '',
+  'Create:  $0 -c <dirname> -o <wad-path>',
+  'Extract: $0 -x <wad-path> -o <dirname>',
+  '',
+  'wad-path:  Path to the WAD archive',
+  'dirname:   Path to the folder'
+].join('\n');
+
+var argv = optimist
+  .usage(usage)
+  .boolean(['c','x'])
+  .demand(['o'])
+  .demand(1)
+  .argv;
+
+if (argv.c === argv.x) {
+  throw new Error('Select a mode, either -c or -x');
+}
+
+if (argv.c) {
+
+  process.title = 'wad-create';
+
+  var wad = new WAD();
+  var dir = new Dir(argv._[0]);
+
+  dir.files(function (err, list) {
+    if (err) { throw err; }
+
+    list.forEach(function (e) {
+      wad.add(e, {
+        type: 'file',
+        path: dir.join(e)
+      });
+    });
+
+    wad.save(argv.o, function () {});
+
+  });
+
+}
+
+if (argv.x) {
+
+  process.title = 'wad-extract';
+
+  var dirname = argv.o;
+
+  WAD.load(argv._[0], function (err, wad) {
+    if (err) { throw err; }
+
+    wad.forEach(function (obj) {
+
+      var outpath = path.join(dirname, obj.path);
+
+      mkdirp(path.dirname(outpath), function (err) {
+        if (err) { throw err; }
+
+        obj.data(function (err, b) {
+          if (err) { throw err; }
+
+          fs.writeFile(outpath, b, function (err) {
+            if (err) { throw err; }
+          });
+
+        });
+
+      });
+
+    });
+
+  });
+
+}
